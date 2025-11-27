@@ -60,7 +60,7 @@ local function run_action(opts, task)
   if opts.pre_action then
     opts.pre_action(task)
   end
-  vim.ui.select(viable, {
+  util.ui_select(viable, {
     prompt = string.format("Actions: %s", task.name),
     kind = "overseer_task_options",
     format_item = function(action)

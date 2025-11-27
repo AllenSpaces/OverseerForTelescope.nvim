@@ -3,70 +3,24 @@ local constants = require("overseer.constants")
 local log = require("overseer.log")
 local task_list = require("overseer.task_list")
 local template = require("overseer.template")
+local util = require("overseer.util")
 local window = require("overseer.window")
 
 local M = {}
 
--- Check if telescope is available
-local function has_telescope()
-  local ok, _ = pcall(require, "telescope")
-  return ok
-end
-
--- Use telescope picker to select template, fallback to vim.ui.select
+-- Use telescope picker to select template (via util.ui_select), fallback to vim.ui.select
 local function select_template(templates, callback)
-  if has_telescope() then
-    local pickers = require("telescope.pickers")
-    local finders = require("telescope.finders")
-    local conf = require("telescope.config").values
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-
-    local opts = {
-      prompt_title = "Task Temeplates",
-      finder = finders.new_table({
-        results = templates,
-        entry_maker = function(tmpl)
-          local display = tmpl.name
-          if tmpl.desc then
-            display = string.format("%s (%s)", tmpl.name, tmpl.desc)
-          end
-          return {
-            value = tmpl,
-            display = display,
-            ordinal = tmpl.name,
-            name = tmpl.name,
-            desc = tmpl.desc,
-          }
-        end,
-      }),
-      sorter = conf.generic_sorter({}),
-      attach_mappings = function(prompt_bufnr, map)
-        actions.select_default:replace(function()
-          actions.close(prompt_bufnr)
-          local selection = action_state.get_selected_entry()
-          if selection then
-            callback(selection.value)
-          end
-        end)
-        return true
-      end,
-    }
-
-    pickers.new({}, opts):find()
-  else
-    vim.ui.select(templates, {
-      prompt = "Task Temeplates",
-      kind = "overseer_template",
-      format_item = function(tmpl)
-        if tmpl.desc then
-          return string.format("%s (%s)", tmpl.name, tmpl.desc)
-        else
-          return tmpl.name
-        end
-      end,
-    }, callback)
-  end
+  util.ui_select(templates, {
+    prompt = "Task Temeplates",
+    kind = "overseer_template",
+    format_item = function(tmpl)
+      if tmpl.desc then
+        return string.format("%s (%s)", tmpl.name, tmpl.desc)
+      else
+        return tmpl.name
+      end
+    end,
+  }, callback)
 end
 
 local function args_or_nil(args)
@@ -264,7 +218,7 @@ M.task_action = function()
   local task_summaries = vim.tbl_map(function(task)
     return { name = task.name, id = task.id }
   end, tasks)
-  vim.ui.select(task_summaries, {
+  util.ui_select(task_summaries, {
     prompt = "Select task",
     kind = "overseer_task",
     format_item = function(task)

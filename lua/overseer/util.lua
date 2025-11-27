@@ -806,4 +806,87 @@ M.get_caller = function()
   return ret
 end
 
+-- Check if telescope is available
+local function has_telescope()
+  local ok, _ = pcall(require, "telescope")
+  return ok
+end
+
+---通用选择函数，支持 telescope，回退到 vim.ui.select
+---@param items table 要选择的项目列表
+---@param opts table 选项，包含 prompt, kind, format_item 等
+---@param callback fun(item: any|nil) 回调函数
+M.ui_select = function(items, opts, callback)
+  opts = opts or {}
+  callback = callback or function() end
+
+  if has_telescope() then
+    local pickers = require("telescope.pickers")
+    local finders = require("telescope.finders")
+    local conf = require("telescope.config").values
+    local actions = require("telescope.actions")
+    local action_state = require("telescope.actions.state")
+
+    local entry_maker = function(item)
+      local display
+      local ordinal
+
+      if opts.format_item then
+        display = opts.format_item(item)
+        -- For ordinal, try to extract meaningful text from the formatted display
+        if type(item) == "table" and item.name then
+          ordinal = item.name
+        elseif type(item) == "string" then
+          ordinal = item
+        else
+          ordinal = tostring(display)
+        end
+      elseif type(item) == "table" and item.name then
+        display = item.name
+        if item.desc then
+          display = string.format("%s (%s)", display, item.desc)
+        end
+        ordinal = item.name
+      elseif type(item) == "string" then
+        display = item
+        ordinal = item
+      else
+        display = tostring(item)
+        ordinal = tostring(item)
+      end
+
+      return {
+        value = item,
+        display = display,
+        ordinal = ordinal,
+      }
+    end
+
+    local picker_opts = {
+      prompt_title = opts.prompt or "Select",
+      finder = finders.new_table({
+        results = items,
+        entry_maker = entry_maker,
+      }),
+      sorter = conf.generic_sorter({}),
+      attach_mappings = function(prompt_bufnr, map)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          if selection then
+            callback(selection.value)
+          else
+            callback(nil)
+          end
+        end)
+        return true
+      end,
+    }
+
+    pickers.new({}, picker_opts):find()
+  else
+    vim.ui.select(items, opts, callback)
+  end
+end
+
 return M
